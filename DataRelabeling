@@ -1,0 +1,35 @@
+# %% 
+## Attempting to import data set and clean it up to match our desired categories 
+## Importing Libraries
+import pandas as pd
+import numpy as np 
+
+##Importing the dataset from Hugging Face
+from datasets import load_dataset
+
+ds = load_dataset("kdkd1/waste-garbage-management-dataset")
+print(ds)
+train = ds["train"]
+old_names = train.features["label"].names
+print(old_names)
+# Renaming the labels to match our desired categories
+    #Setting the new names for the labels
+rename_labels = {
+    "clothes": "donate",
+    "shoes": "donate",
+    "battery": "hazardous waste"
+}   
+    #updating the labels in the dataset to match our desired categories
+def update_label(label_id):
+    old_label = old_names[label_id]
+    new_label = rename_labels.get(old_label, old_label)
+    return {"new_label": new_label}
+    #mapping the update_label function to the train dataset to update the labels
+updated_train = train.map(update_label, input_columns=["label"])
+    #removing the old label column and renaming the new label column to "label"
+updated_train = updated_train.remove_columns("label")
+updated_train = updated_train.rename_column("new_label", "label")
+    #setting the numeric class labels to match the new label names 
+updated_train = updated_train.class_encode_column("label")
+
+print(updated_train.features["label"].names)
