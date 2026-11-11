@@ -33,3 +33,19 @@ updated_train = updated_train.rename_column("new_label", "label")
 updated_train = updated_train.class_encode_column("label")
 
 print(updated_train.features["label"].names)
+
+#Splitting the dataset into training and testing sets
+train_test_split = updated_train.train_test_split(test_size=0.2)
+#printing the train-test split 
+print("Train-Test Split:")
+print(train_test_split)
+#printing training and testing sets and their label names
+print("Training Set")
+print(train_test_split["train"])
+print("Training Set Label Names:")
+print(train_test_split["train"].features["label"].names)
+#printing testing set and its label names
+print("Testing Set")
+print(train_test_split["test"])
+print("Testing Set Label Names:")
+print(train_test_split["test"].features["label"].names) 
