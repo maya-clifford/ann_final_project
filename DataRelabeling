@@ -4,20 +4,29 @@
 import pandas as pd
 import numpy as np 
 
+# %%
 ##Importing the dataset from Hugging Face
 from datasets import load_dataset
 
-ds = load_dataset("kdkd1/waste-garbage-management-dataset")
+
+# %%
+import os
+from huggingface_hub import login
+
+ds = load_dataset(login(token=os.environ["HF_TOKEN"]))
 print(ds)
+# %%
 train = ds["train"]
 old_names = train.features["label"].names
 print(old_names)
 # Renaming the labels to match our desired categories
     #Setting the new names for the labels
 rename_labels = {
-    "clothes": "donate",
-    "shoes": "donate",
-    "battery": "hazardous waste"
+    "clothes": "textile",
+    "shoes": "textile",
+    "battery": "hazardous waste", 
+    'biological': 'food waste', 
+    'trash': 'hazardous waste'
 }   
     #updating the labels in the dataset to match our desired categories
 def update_label(label_id):
@@ -34,6 +43,7 @@ updated_train = updated_train.class_encode_column("label")
 
 print(updated_train.features["label"].names)
 
+# %%
 #Splitting the dataset into training and testing sets
 train_test_split = updated_train.train_test_split(test_size=0.2)
 #printing the train-test split 
@@ -49,3 +59,5 @@ print("Testing Set")
 print(train_test_split["test"])
 print("Testing Set Label Names:")
 print(train_test_split["test"].features["label"].names) 
+
+# %% 
