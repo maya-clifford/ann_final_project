@@ -1,0 +1,158 @@
+# %% 
+## Attempting to import data set and clean it up to match our desired categories 
+## Importing Libraries
+import pandas as pd
+import numpy as np 
+
+# %%
+##Importing the dataset from Hugging Face
+from datasets import load_dataset
+
+ds = load_dataset("kdkd1/waste-garbage-management-dataset")
+print(ds)
+
+# %%
+train = ds["train"]
+old_names = train.features["label"].names
+print(old_names)
+# Renaming the labels to match our desired categories
+    #Setting the new names for the labels
+rename_labels = {
+    "clothes": "textile",
+    "shoes": "textile",
+    "battery": "hazardous waste", 
+    'biological': 'food waste', 
+    'trash': 'hazardous waste'
+}   
+    #updating the labels in the dataset to match our desired categories
+def update_label(label_id):
+    old_label = old_names[label_id]
+    new_label = rename_labels.get(old_label, old_label)
+    return {"new_label": new_label}
+    #mapping the update_label function to the train dataset to update the labels
+updated_train = train.map(update_label, input_columns=["label"])
+    #removing the old label column and renaming the new label column to "label"
+updated_train = updated_train.remove_columns("label")
+updated_train = updated_train.rename_column("new_label", "label")
+    #setting the numeric class labels to match the new label names 
+updated_train = updated_train.class_encode_column("label")
+
+print(updated_train.features["label"].names)
+
+# %% 
+# do some eda on the data to visualize class distributions 
+import matplotlib.pyplot as plt
+
+# %%
+train_df = train.remove_columns("image").to_pandas()
+train_df.head()
+
+# %%
+names = train.features["label"].names
+train_df["label_name"] = train_df["label"].map(lambda i: names[i])
+count = train_df["label_name"].value_counts()
+print(count)
+
+# %% 
+plt.bar(count.index, count.values)
+plt.title('Value counts for each original label')
+plt.xticks(rotation=45)
+plt.show()
+
+# %% 
+# make a dataframe that replaces the old labels with our new ones
+new_label_train_df = train_df.copy()
+new_label_train_df["label_name"] = train_df["label_name"].replace(rename_labels)
+
+# %%
+new_count = new_label_train_df["label_name"].value_counts()
+print(new_count)
+
+# %%
+plt.bar(new_count.index, new_count.values)
+plt.title('Value counts for each new label corresponding to \n Copenhagen recycling categories')
+plt.xticks(rotation=45)
+plt.show()
+
+# %%
+#Splitting the dataset into training and testing sets
+train_test_split = updated_train.train_test_split(test_size=0.2, seed=42, stratify_by_column='label')
+#printing the train-test split 
+print("Train-Test Split:")
+print(train_test_split)
+#printing training and testing sets and their label names
+print("Training Set")
+print(train_test_split["train"])
+print("Training Set Label Names:")
+print(train_test_split["train"].features["label"].names)
+#printing testing set and its label names
+print("Testing Set")
+print(train_test_split["test"])
+print("Testing Set Label Names:")
+print(train_test_split["test"].features["label"].names) 
+
+# %%
+# resize images for training 
+from PIL import Image
+
+IMG_SIZE = (128, 128)   
+
+def preprocess(batch):
+    batch["image"] = [img.convert("RGB").resize(IMG_SIZE) for img in batch["image"]]
+    return batch
+
+train_test_split = train_test_split.map(preprocess, batched=True)
+
+# %%
+# convert train and test to arrays 
+def to_numpy(split):
+    n = len(split)
+    X = np.empty((n, 128, 128, 3), dtype=np.uint8)   
+    for i, img in enumerate(split["image"]):
+        X[i] = np.array(img)
+    y = np.array(split["label"])
+    return X, y
+
+
+X_train, y_train = to_numpy(train_test_split["train"])
+X_test, y_test = to_numpy(train_test_split["test"])
+
+print(X_train.shape)  
+print(y_train.shape)  
+
+# %%
+# try a simple CNN to ensure that the reshaping made it so the images 
+# can be passed through the network
+from tensorflow import keras
+from tensorflow.keras import layers, models
+
+model = models.Sequential([
+    layers.Input(shape=(128, 128, 3)),
+    layers.Rescaling(1./255),                  
+    layers.Conv2D(32, 3, activation="relu"),
+    layers.MaxPooling2D(),
+    layers.Flatten(),
+    layers.Dense(32, activation="relu"),
+    layers.Dropout(0.5),                      
+    layers.Dense(8, activation="softmax"),
+])
+
+model.compile(
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy",    
+    metrics=["accuracy"],
+)
+
+model.summary()
+# %%
+history = model.fit(
+    X_train, y_train,
+    validation_data=(X_test, y_test),
+    epochs=5,
+    batch_size=32,
+)
+
+# %% 
+test_loss, test_accuracy = model.evaluate(X_test, y_test)
+print(f'Test accuracy: {test_accuracy:.4f}')
+# %%
