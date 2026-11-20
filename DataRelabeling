@@ -155,4 +155,79 @@ history = model.fit(
 # %% 
 test_loss, test_accuracy = model.evaluate(X_test, y_test)
 print(f'Test accuracy: {test_accuracy:.4f}')
+
+# %% 
+# print confusion matrix
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+
+# Get predictions from model
+preds = model.predict(X_test)
+
+# Convert probabilities into predicted class numbers
+y_pred = np.argmax(preds, axis=1)
+
+# Create confusion matrix
+cm = confusion_matrix(y_test, y_pred)
+
+# Get class names
+class_names = updated_train.features["label"].names
+
+# Plot confusion matrix
+plt.figure(figsize=(10, 8))
+
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt="d",
+    cmap="Blues",
+    xticklabels=class_names,
+    yticklabels=class_names
+)
+
+plt.xlabel("Predicted class")
+plt.ylabel("Actual class")
+plt.title("Confusion Matrix")
+plt.xticks(rotation=45)
+plt.yticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+# Print classification report
+print(classification_report(
+    y_test,
+    y_pred,
+    target_names=class_names
+))
+
+# %%
+# try only training with 2000 datapoints in textile category
+from datasets import concatenate_datasets
+# %%
+# get the 
+label_names = updated_train.features["label"].names
+textile_label = label_names.index("textile")
+
+# Separate textile and non-textile datapoints
+textile_data = updated_train.filter(
+    lambda example: example["label"] == textile_label
+)
+
+other_data = updated_train.filter(
+    lambda example: example["label"] != textile_label
+)
+
+# Randomly select 2,000 textile datapoints
+textile_data = textile_data.shuffle(seed=42).select(range(2000))
+
+# Combine textile and all other classes
+updated_train_less_textile = concatenate_datasets([
+    textile_data,
+    other_data
+])
+
+# Shuffle the combined dataset
+updated_train_less_textile = updated_train_less_textile.shuffle(seed=42)
+
+print("New dataset size:", len(updated_train_less_textile))
 # %%
